@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VAIDYAM - Healthcare Platform</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google MediaPipe Hands for Sign Language -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <!-- Tesseract.js for Prescription OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+  <style>
+    .bg-hero-full {
+      background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85)), url('sihd1.jpeg') no-repeat center center/cover;
+    }
+    .hidden-step { display: none !important; }
+    .step-active { display: block; animation: fadeIn 0.3s ease-in-out; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 font-sans min-h-screen flex flex-col text-slate-800">
+
+  <!-- HEADER -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="goToStep(1)">
+        <img src="vaidyam logo.png" alt="VAIDYAM Logo" class="h-10 w-10 object-contain">
+        <h1 class="text-2xl font-black text-teal-800 tracking-wide">VAIDYAM</h1>
+      </div>
+      
+      <div id="stepBadge" class="text-xs font-bold px-3.5 py-1.5 bg-teal-50 text-teal-700 rounded-full border border-teal-200">
+        Welcome Screen
+      </div>
+    </div>
+  </header>
+
+  <!-- STEP 1: WELCOME PAGE -->
+  <section id="step1" class="step-active flex-1 flex items-center justify-center bg-hero-full p-6">
+    <div class="bg-white/10 backdrop-blur-md border border-white/20 p-8 md:p-10 rounded-3xl max-w-md w-full text-center text-white space-y-6 shadow-2xl">
+      <div>
+        <img src="vaidyam logo.png" alt="VAIDYAM Logo" class="h-20 w-20 mx-auto bg-white rounded-full p-2 mb-3 shadow-md object-contain">
+        <h2 class="text-3xl font-extrabold">Welcome to VAIDYAM</h2>
+        <p id="welcomeVoicePrompt" class="text-sm text-slate-200 mt-1">Select language & enter ABHA ID</p>
+      </div>
+
+      <div class="space-y-4 text-left">
+        <div>
+          <label class="block text-xs font-semibold text-slate-200 uppercase mb-1">Language (भाषा)</label>
+          <select id="languageSelect" onchange="speakWelcomeOnLoad()" class="w-full bg-slate-900/80 text-white border border-slate-600 rounded-xl p-3.5 text-base focus:outline-none">
+            <option value="en-IN" selected>English</option>
+            <option value="hi-IN">Hindi (हिंदी)</option>
+            <option value="ta-IN">Tamil (தமிழ்)</option>
+            <option value="te-IN">Telugu (తెలుగు)</option>
+            <option value="kn-IN">Kannada (ಕನ್ನಡ)</option>
+            <option value="bn-IN">Bengali (বাংলা)</option>
+            <option value="mr-IN">Marathi (मराठी)</option>
+            <option value="gu-IN">Gujarati (ગુજરાતી)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-200 uppercase mb-1">ABHA Health ID / Mobile</label>
+          <input type="text" id="abhaIdInput" value="12-3456-7890-1234" placeholder="Enter ABHA ID or Mobile" class="w-full bg-slate-900/80 text-white border border-slate-600 rounded-xl p-3.5 text-base focus:outline-none">
+        </div>
+      </div>
+
+      <button onclick="proceedToStep2()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-4 px-6 rounded-2xl shadow-lg transition text-base">
+        Begin Assessment →
+      </button>
+    </div>
+  </section>
+
+  <!-- MAIN WORKSPACE CONTAINER -->
+  <main id="mainWorkspace" class="hidden-step flex-1 flex flex-col justify-center items-center p-6">
+
+    <!-- STEP 2: CARE PATH SELECTION -->
+    <section id="step2" class="hidden-step w-full max-w-4xl">
+      <div class="bg-white rounded-3xl shadow-lg border border-slate-200 p-8 md:p-12 space-y-8 text-center">
+        <div>
+          <h2 class="text-3xl font-extrabold text-slate-800">Select Medical Track</h2>
+          <p id="pathVoicePrompt" class="text-sm text-slate-500 mt-2">Choose your preferred system of care to continue</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <button onclick="selectCarePath('allopathy')" class="group p-8 bg-slate-50 hover:bg-teal-50/60 border-2 border-slate-200 hover:border-teal-500 rounded-3xl transition flex flex-col items-center justify-center space-y-5">
+            <div class="h-36 w-full flex items-center justify-center">
+              <img src="sihp1.jpg" alt="Allopathy Emblem" class="h-full object-contain filter drop-shadow-md">
+            </div>
+            <div>
+              <div class="font-black text-slate-800 text-xl group-hover:text-teal-700">Allopathy</div>
+              <p class="text-xs text-slate-500 mt-1">Modern Clinical Diagnosis</p>
+            </div>
+          </button>
+
+          <button onclick="selectCarePath('ayurveda')" class="group p-8 bg-slate-50 hover:bg-emerald-50/60 border-2 border-slate-200 hover:border-emerald-500 rounded-3xl transition flex flex-col items-center justify-center space-y-5">
+            <div class="h-36 w-full flex items-center justify-center">
+              <img src="sihp2.jpeg" alt="Ayurveda Emblem" class="h-full object-contain filter drop-shadow-md">
+            </div>
+            <div>
+              <div class="font-black text-slate-800 text-xl group-hover:text-emerald-700">Ayurveda</div>
+              <p class="text-xs text-slate-500 mt-1">Holistic Herbal Triage</p>
+            </div>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 3: DEEP AI EXAMINATION FLOW -->
+    <section id="step3" class="hidden-step w-full max-w-3xl">
+      <div class="bg-white rounded-3xl shadow-lg border border-slate-200 p-8 space-y-6">
+        
+        <!-- Header & Question Counter -->
+        <div class="flex items-center justify-between border-b pb-4">
+          <div>
+            <h2 id="step3HeaderTitle" class="text-2xl font-bold text-slate-800">Deep AI Examination</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Track: <span id="selectedPathDisplay" class="font-bold text-teal-700 uppercase"></span></p>
+          </div>
+          <span id="examProgressBadge" class="bg-teal-100 text-teal-800 text-xs font-extrabold px-3 py-1 rounded-full border border-teal-200">
+            Question 1 of 3
+          </span>
+        </div>
+
+        <!-- AI Question Card -->
+        <div class="bg-teal-50/70 border border-teal-200 p-5 rounded-2xl flex items-start space-x-3">
+          <div class="text-2xl">🩺</div>
+          <div class="flex-1">
+            <p id="aiQuestionText" class="text-teal-900 font-semibold text-base">...</p>
+            <p id="aiSubPrompt" class="text-xs text-teal-700 mt-1">...</p>
+          </div>
+        </div>
+
+        <!-- Mode Tab Switcher -->
+        <div class="flex bg-slate-100 p-1.5 rounded-2xl text-sm font-bold text-slate-600">
+          <button id="tabTextVoice" onclick="switchInputMode('text')" class="flex-1 py-3 rounded-xl bg-white shadow-sm text-teal-700 transition">
+            ✍️ Voice / Text Input
+          </button>
+          <button id="tabSign" onclick="switchInputMode('sign')" class="flex-1 py-3 rounded-xl hover:text-teal-700 transition">
+            🤟 Sign Language Camera
+          </button>
+        </div>
+
+        <!-- INPUT MODE 1: VOICE / TEXT -->
+        <div id="textInputContainer" class="space-y-4">
+          <textarea id="currentAnswerInput" rows="3" placeholder="Answer to the current question..." class="w-full bg-slate-50 border border-slate-300 rounded-2xl p-4 text-base focus:ring-2 focus:ring-teal-500 focus:outline-none"></textarea>
+          
+          <button onclick="startNativeVoiceInput()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 px-4 rounded-xl text-sm flex items-center justify-center space-x-2 transition shadow-sm">
+            <span>🎤 Speak Answer</span>
+          </button>
+          <p id="voiceStatus" class="text-xs text-slate-400 italic text-center"></p>
+        </div>
+
+        <!-- INPUT MODE 2: SIGN LANGUAGE CAMERA -->
+        <div id="signCameraContainer" class="hidden bg-slate-900 rounded-2xl p-4 text-white text-center space-y-3">
+          <div class="text-xs font-semibold flex justify-between items-center px-1">
+            <span>Sign Language Gesture Tracking</span>
+            <span id="detectedSignBadge" class="bg-purple-600 px-3 py-1 rounded-full text-xs">Ready</span>
+          </div>
+          <video id="webcamView" class="w-full max-h-60 rounded-xl object-cover transform -scale-x-100" autoplay playsinline></video>
+        </div>
+
+        <!-- PREVIOUS RESPONSES LOG -->
+        <div id="responseHistoryContainer" class="hidden bg-slate-50 rounded-2xl p-4 border border-slate-200 text-xs space-y-2">
+          <span class="font-bold text-slate-500 uppercase block">Examination Log</span>
+          <div id="responseHistoryList" class="space-y-1.5 text-slate-700"></div>
+        </div>
+
+        <!-- ACTION BUTTON -->
+        <button id="nextQuestionBtn" onclick="submitCurrentAnswer()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-4 rounded-2xl text-base transition shadow-md">
+          Submit & Next Question →
+        </button>
+
+      </div>
+    </section>
+
+    <!-- STEP 4: HEALTH SUMMARY -->
+    <section id="step4" class="hidden-step w-full max-w-2xl">
+      <div id="resultCard" class="bg-white rounded-3xl shadow-lg border border-slate-200 p-8 space-y-6">
+        
+        <div class="flex items-center justify-between border-b pb-4">
+          <div>
+            <h2 class="text-2xl font-bold text-slate-800">Health Summary</h2>
+            <p class="text-xs text-slate-500 mt-0.5">ABHA ID: <span id="resAbha"></span></p>
+          </div>
+          <span id="severityBadge" class="px-3.5 py-1 rounded-full text-xs font-bold uppercase text-white bg-emerald-600">
+            ROUTINE
+          </span>
+        </div>
+
+        <div id="doctorNotice" class="p-4 rounded-2xl bg-slate-100 border border-slate-200 text-xs"></div>
+
+        <div class="space-y-4 text-sm">
+          <div class="p-4 bg-slate-50 rounded-2xl">
+            <span class="block text-xs font-bold text-slate-500 uppercase">Assessment</span>
+            <p id="resSummaryText" class="text-slate-800 mt-1 font-medium"></p>
+          </div>
+
+          <div class="p-4 bg-slate-50 rounded-2xl">
+            <span class="block text-xs font-bold text-slate-500 uppercase">Recommended Remedy</span>
+            <p id="resRemedyText" class="text-teal-800 font-semibold mt-1"></p>
+          </div>
+
+          <div class="p-4 bg-slate-50 rounded-2xl">
+            <span class="block text-xs font-bold text-slate-500 uppercase">Action Required</span>
+            <p id="resActionText" class="text-slate-800 mt-1"></p>
+          </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-3 pt-2">
+          <button onclick="readAssessmentAloud()" class="flex-1 bg-slate-700 hover:bg-slate-800 text-white font-bold py-3.5 px-4 rounded-xl text-xs transition">
+            🔊 Read Aloud
+          </button>
+          <button onclick="goToStep(5)" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-bold py-3.5 px-4 rounded-xl text-xs transition shadow-md flex items-center justify-center space-x-1">
+            <span>Find Doctors & Medicine Kendras →</span>
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- STEP 5: TELECONSULTATION, PRESCRIPTION OCR & JAN AUSHADHI KENDRA -->
+    <section id="step5" class="hidden-step w-full max-w-4xl space-y-8">
+      
+      <!-- OCR Prescription Reader Section -->
+      <div class="bg-white rounded-3xl shadow-lg border border-slate-200 p-6 md:p-8 space-y-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b pb-4">
+          <div>
+            <h2 class="text-2xl font-bold text-slate-800">📄 Prescription OCR Scanner</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Upload a doctor's prescription image to read medicines & find affordable generic options</p>
+          </div>
+          <span class="self-start md:self-auto bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1 rounded-full border border-indigo-200">
+            AI Optical Character Recognition
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+          
+          <!-- Upload Box -->
+          <div class="space-y-4">
+            <label class="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-teal-500 rounded-2xl p-6 cursor-pointer bg-slate-50 hover:bg-teal-50/50 transition group text-center">
+              <div class="h-12 w-12 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center text-xl mb-2 group-hover:scale-110 transition">
+                📸
+              </div>
+              <span class="text-sm font-bold text-slate-700">Click to Upload Prescription</span>
+              <span class="text-xs text-slate-400 mt-1">Supports JPG, PNG, WEBP</span>
+              <input type="file" id="prescriptionInput" accept="image/*" onchange="processPrescriptionOCR(event)" class="hidden">
+            </label>
+
+            <!-- Image Preview Box -->
+            <div id="ocrPreviewContainer" class="hidden space-y-2">
+              <span class="text-xs font-bold text-slate-500 uppercase">Uploaded Image</span>
+              <img id="ocrPreviewImg" src="" alt="Prescription Preview" class="w-full h-48 object-cover rounded-2xl border border-slate-200 shadow-sm">
+            </div>
+          </div>
+
+          <!-- OCR Processing Output -->
+          <div class="space-y-4">
+            <!-- Progress Bar -->
+            <div id="ocrProgressCard" class="hidden bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
+              <div class="flex justify-between text-xs font-bold text-slate-600">
+                <span id="ocrStatusText">Analyzing Image...</span>
+                <span id="ocrPercent">0%</span>
+              </div>
+              <div class="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                <div id="ocrProgressBar" class="bg-teal-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <!-- Extracted Text Area -->
+            <div class="bg-slate-900 rounded-2xl p-4 text-slate-200 space-y-2">
+              <div class="flex justify-between items-center border-b border-slate-800 pb-2 text-xs font-bold text-slate-400">
+                <span>EXTRACTED TEXT</span>
+                <span id="ocrStatusBadge" class="text-slate-500">Awaiting Upload</span>
+              </div>
+              <pre id="ocrExtractedText" class="text-xs font-mono whitespace-pre-wrap max-h-36 overflow-y-auto text-slate-300 leading-relaxed">No prescription uploaded yet.</pre>
+            </div>
+
+            <!-- Matched Generic Medicines Result -->
+            <div id="matchedMedicinesCard" class="hidden bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-2">
+              <span class="text-xs font-bold text-emerald-800 uppercase block">Jan Aushadhi Generic Match</span>
+              <div id="matchedMedicinesList" class="text-xs text-emerald-900 space-y-1"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      
+      <!-- Teleconsultation Section -->
+      <div class="bg-white rounded-3xl shadow-lg border border-slate-200 p-6 md:p-8 space-y-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b pb-4">
+          <div>
+            <h2 class="text-2xl font-bold text-slate-800">Teleconsultation Doctors</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Connect instantly with certified medical experts</p>
+          </div>
+          <span class="self-start md:self-auto bg-teal-50 text-teal-700 text-xs font-bold px-3 py-1 rounded-full border border-teal-200">
+            Live Availability
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          <!-- Doctor Card 1 -->
+          <div class="p-5 border border-slate-200 rounded-2xl bg-slate-50 hover:border-teal-500 transition space-y-3">
+            <div class="flex items-center space-x-4">
+              <div class="h-14 w-14 rounded-full bg-teal-100 border border-teal-300 flex items-center justify-center font-extrabold text-teal-800 text-lg">
+                DR
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center justify-between">
+                  <h3 class="font-bold text-slate-800 text-base">Dr. Rajesh Sharma</h3>
+                  <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">Online</span>
+                </div>
+                <p class="text-xs text-slate-500">MBBS, MD (General Medicine) • 12 Yrs Exp</p>
+                <p class="text-xs text-teal-700 font-semibold mt-0.5">Hindi, English, Punjabi</p>
+              </div>
+            </div>
+            <div class="flex items-center justify-between pt-2 border-t border-slate-200 text-xs">
+              <div>
+                <span class="text-slate-400 block text-[10px] uppercase">Consultation Fee</span>
+                <span class="font-extrabold text-slate-800 text-sm">₹200</span>
+              </div>
+              <button onclick="alert('Initiating Teleconsultation session with Dr. Rajesh Sharma...')" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-xl transition shadow-sm">
+                Book Video Call
+              </button>
+            </div>
+          </div>
+
+          <!-- Doctor Card 2 -->
+          <div class="p-5 border border-slate-200 rounded-2xl bg-slate-50 hover:border-teal-500 transition space-y-3">
+            <div class="flex items-center space-x-4">
+              <div class="h-14 w-14 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center font-extrabold text-emerald-800 text-lg">
+                VA
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center justify-between">
+                  <h3 class="font-bold text-slate-800 text-base">Vaidya Ananya Iyer</h3>
+                  <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">Available</span>
+                </div>
+                <p class="text-xs text-slate-500">BAMS, MD (Ayurveda) • 8 Yrs Exp</p>
+                <p class="text-xs text-emerald-700 font-semibold mt-0.5">Tamil, English, Hindi</p>
+              </div>
+            </div>
+            <div class="flex items-center justify-between pt-2 border-t border-slate-200 text-xs">
+              <div>
+                <span class="text-slate-400 block text-[10px] uppercase">Consultation Fee</span>
+                <span class="font-extrabold text-slate-800 text-sm">₹150</span>
+              </div>
+              <button onclick="alert('Initiating Teleconsultation session with Vaidya Ananya...')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-xl transition shadow-sm">
+                Book Video Call
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Jan Aushadhi Kendra Section -->
+      <div class="bg-white rounded-3xl shadow-lg border border-slate-200 p-6 md:p-8 space-y-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b pb-4">
+          <div>
+            <h2 class="text-2xl font-bold text-slate-800">Nearest Jan Aushadhi Kendras</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Affordable generic medicines available up to 50%-90% discount</p>
+          </div>
+          <span class="self-start md:self-auto bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1 rounded-full border border-amber-200">
+            Government Generic Stores
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          <!-- Kendra Card 1 -->
+          <div class="p-5 border border-slate-200 rounded-2xl bg-amber-50/40 hover:border-amber-400 transition space-y-3">
+            <div class="flex justify-between items-start">
+              <div>
+                <h3 class="font-bold text-slate-800 text-base">PMBJP Kendra - Metro Station Road</h3>
+                <p class="text-xs text-slate-500 mt-0.5">Shop No. 4, Community Complex, Main Road</p>
+              </div>
+              <span class="text-xs bg-amber-100 text-amber-800 font-extrabold px-2 py-1 rounded-lg border border-amber-200">
+                1.2 km away
+              </span>
+            </div>
+            <div class="text-xs text-slate-600 space-y-1">
+              <p>⏰ <b>Timings:</b> 08:00 AM - 09:30 PM</p>
+              <p>📞 <b>Phone:</b> +91 98765 43210</p>
+            </div>
+            <div class="flex gap-2 pt-2 border-t border-slate-200">
+              <a href="https://maps.google.com" target="_blank" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 text-center rounded-xl text-xs transition">
+                📍 Get Directions
+              </a>
+              <button onclick="alert('Calling PMBJP Kendra...')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-4 rounded-xl text-xs transition">
+                📞 Call
+              </button>
+            </div>
+          </div>
+
+          <!-- Kendra Card 2 -->
+          <div class="p-5 border border-slate-200 rounded-2xl bg-amber-50/40 hover:border-amber-400 transition space-y-3">
+            <div class="flex justify-between items-start">
+              <div>
+                <h3 class="font-bold text-slate-800 text-base">Jan Aushadhi Store - Civil Hospital Gate</h3>
+                <p class="text-xs text-slate-500 mt-0.5">District Civil Hospital Premises</p>
+              </div>
+              <span class="text-xs bg-amber-100 text-amber-800 font-extrabold px-2 py-1 rounded-lg border border-amber-200">
+                2.8 km away
+              </span>
+            </div>
+            <div class="text-xs text-slate-600 space-y-1">
+              <p>⏰ <b>Timings:</b> 24 Hours Open</p>
+              <p>📞 <b>Phone:</b> +91 98123 45678</p>
+            </div>
+            <div class="flex gap-2 pt-2 border-t border-slate-200">
+              <a href="https://maps.google.com" target="_blank" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 text-center rounded-xl text-xs transition">
+                📍 Get Directions
+              </a>
+              <button onclick="alert('Calling Jan Aushadhi Store...')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-4 rounded-xl text-xs transition">
+                📞 Call
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Return Button -->
+      <div class="text-center pb-6">
+        <button onclick="goToStep(1)" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-3.5 px-8 rounded-2xl text-sm transition shadow-lg">
+          🔄 Start New Assessment
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script>
+    let selectedLanguage = "en-IN";
+    let selectedPath = "allopathy";
+    let camera = null;
+    let hands = null;
+
+    let currentQuestionIndex = 0;
+    let examinationAnswers = [];
+
+    // MULTILINGUAL DICTIONARY & QUESTION SETS
+    const examinationQuestions = {
+      "en-IN": [
+        { id: "symptoms", question: "What primary symptom or health discomfort are you experiencing right now?", sub: "Respond via voice, text, or sign language gestures below." },
+        { id: "duration", question: "How long have you been having these symptoms?", sub: "Specify if it started today, a few days ago, or over a week." },
+        { id: "severity", question: "Is the discomfort Mild, Moderate, or Severe? Any fever or headache?", sub: "Provide details to help us assess your condition accurately." }
+      ],
+      "hi-IN": [
+        { id: "symptoms", question: "आपको अभी मुख्य रूप से क्या शारीरिक समस्या या लक्षण महसूस हो रहे हैं?", sub: "नीचे दिए गए वॉइस, टेक्स्ट या सांकेतिक भाषा का प्रयोग करें।" },
+        { id: "duration", question: "आपको यह समस्या कितने समय से (कितने दिनों से) हो रही है?", sub: "बताएं कि यह आज शुरू हुई, कुछ दिन पहले, या एक हफ्ते से अधिक।" },
+        { id: "severity", question: "आपकी तकलीफ कितनी है: हल्की, मध्यम या गंभीर? क्या बुखार या दर्द भी है?", sub: "सटीक आकलन के लिए अपनी स्थिति का विवरण दें।" }
+      ],
+      "ta-IN": [
+        { id: "symptoms", question: "உங்களுக்கு இப்போது என்ன முக்கிய சுகாதாரப் பிரச்சனை அல்லது அறிகுறிகள் உள்ளன?", sub: "குரல், உரை அல்லது சைகை மொழி மூலம் பதிலளிக்கவும்." },
+        { id: "duration", question: "இந்த அறிகுறிகள் உங்களுக்கு எவ்வளவு காலமாக உள்ளன?", sub: "இன்று, சில நாட்களுக்கு முன்பு அல்லது ஒரு வாரத்திற்கு மேலாகத் தொடங்கியதா என்று குறிப்பிடவும்." },
+        { id: "severity", question: "பிரச்சனை லேசானதா, மிதமானதா அல்லது கடுமையானதா? காய்ச்சல் அல்லது தலைவலி உள்ளதா?", sub: "துல்லியமான மதிப்பீட்டிற்கு விவரங்களை வழங்கவும்." }
+      ],
+      "te-IN": [
+        { id: "symptoms", question: "మీరు ప్రస్తుతం ఏ ప్రధాన ఆరోగ్య సమస్య లేదా లక్షణాలను ఎదుర్కొంటున్నారు?", sub: "వాయిస్, టెక్స్ట్ లేదా సైన్ లాంగ్వేజ్ ద్వారా సమాధానం ఇవ్వండి." },
+        { id: "duration", question: "మీకు ఈ లక్షణాలు ఎంతకాలంగా ఉన్నాయి?", sub: "ఇది ఈరోజు ప్రారంభమైందా, కొన్ని రోజుల క్రితమా లేదా వారం కంటే ఎక్కువ కాలమా అని పేర్కొనండి." },
+        { id: "severity", question: "అస్వస్థత తీవ్రత స్వల్పమా, మధ్యస్థమా లేదా తీవ్రమైనదా? జ్వరం లేదా తలనొప్పి ఉందా?", sub: "ఖచ్చితమైన అంచనా కోసం వివరాలను అందించండి." }
+      ],
+      "kn-IN": [
+        { id: "symptoms", question: "ನೀವು ಪ್ರಸ್ತುತ ಯಾವ ಪ್ರಮುಖ ಆರೋಗ್ಯ ಸಮಸ್ಯೆಯನ್ನು ಎದುರಿಸುತ್ತಿದ್ದೀರಿ?", sub: "ಧ್ವನಿ, ಪಠ್ಯ ಅಥವಾ ಸೈನ್ ಭಾಷೆಯ ಮೂಲಕ ಉತ್ತರಿಸಿ." },
+        { id: "duration", question: "ಈ ರೋಗಲಕ್ಷಣಗಳು ನಿಮಗೆ ಎಷ್ಟು ಸಮಯದಿಂದ ಇವೆ?", sub: "ಇಂದು ಪ್ರಾರಂಭವಾಗಿದೆಯೇ, ಕೆಲವು ದಿನಗಳ ಹಿಂದೆ ಅಥವಾ ಒಂದು ವಾರಕ್ಕಿಂತ ಹೆಚ್ಚು ಸಮಯವೇ ಎಂದು ತಿಳಿಸಿ." },
+        { id: "severity", question: "ಸಮಸ್ಯೆಯು ಸೌಮ್ಯವೇ, ಮಧ್ಯಮವೇ ಅಥವಾ ತೀವ್ರವೇ? ಜ್ವರ ಅಥವಾ ತಲೆನೋವು ಇದೆಯೇ?", sub: "ನಿಖರವಾದ ಮೌಲ್ಯಮಾಪನಕ್ಕಾಗಿ ವಿವರಗಳನ್ನು ನೀಡಿ." }
+      ],
+      "bn-IN": [
+        { id: "symptoms", question: "আপনি এখন প্রধানত কি স্বাস্থ্য সমস্যা বা লক্ষণ অনুভব করছেন?", sub: "ভয়েস, টেক্সট বা সাইন ল্যাঙ্গুয়েজ ব্যবহার করে উত্তর দিন।" },
+        { id: "duration", question: "আপনার এই লক্ষণগুলি কত দিন ধরে হচ্ছে?", sub: "এটি আজ শুরু হয়েছে, কয়েক দিন আগে, নাকি এক সপ্তাহের বেশি সময় আগে তা উল্লেখ করুন।" },
+        { id: "severity", question: "অসুবিধা কি মৃদু, মাঝারি না গুরুতর? কোনো জ্বর বা মাথাব্যথা আছে কি?", sub: "সঠিক মূল্যায়নের জন্য বিবরণ প্রদান করুন।" }
+      ],
+      "mr-IN": [
+        { id: "symptoms", question: "तुम्हाला सध्या कोणती मुख्य शारीरिक समस्या किंवा लक्षणे जाणवत आहेत?", sub: "खालील व्हॉइस, टेक्स्ट किंवा सांकेतिक भाषेचा वापर करा." },
+        { id: "duration", question: "तुम्हाला ही लक्षणे किती दिवसांपासून जाणवत आहेत?", sub: "आज सुरू झाले, काही दिवसांपूर्वी, की एका आठवड्यापेक्षा जास्त काळ झाला ते सांगा." },
+        { id: "severity", question: "त्रास सौम्य, मध्यम की तीव्र आहे? ताप किंवा डोकेदुखी आहे का?", sub: "अचूक मूल्यांकनासाठी तपशील द्या." }
+      ],
+      "gu-IN": [
+        { id: "symptoms", question: "તમને હાલમાં કઈ મુખ્ય શારીરિક સમસ્યા કે લક્ષણો અનુભવાઈ રહ્યા છે?", sub: "અવાજ, ટેક્સ્ટ અથવા સંકેત ભાષા દ્વારા જવાબ આપો." },
+        { id: "duration", question: "તમને આ લક્ષણો કેટલા સમયથી છે?", sub: "તે આજે શરૂ થયું, થોડા દિવસો પહેલાં, કે એક અઠવાડિયા કરતાં વધુ સમયથી છે તે જણાવો." },
+        { id: "severity", question: "તકલીફ હળવી, મધ્યમ કે ગંભીર છે? તાવ કે માથાનો દુખાવો છે?", sub: "સચોટ મૂલ્યાંકન માટે વિગત આપો." }
+      ]
+    };
+
+    const welcomePrompts = {
+      "en-IN": "Welcome to VAIDYAM. Select your language and enter ABHA ID to login.",
+      "hi-IN": "वैद्यम में आपका स्वागत है। अपनी भाषा चुनें और लॉगिन करने के लिए अपना आभा आईडी दर्ज करें।",
+      "ta-IN": "வைத்யம் உங்களை வரவேற்கிறது. உங்கள் மொழியைத் தேர்ந்தெடுத்து உள்நுழைய ABHA ஐடியை உள்ளிடவும்.",
+      "te-IN": "వైద్యం కు స్వాగతం. లాగిన్ చేయడానికి మీ భాషను ఎంచుకోండి మరియు ABHA IDని నమోదు చేయండి.",
+      "kn-IN": "ವೈದ್ಯಂಗೆ ସ୍ଵାଗତ. ನಿಮ್ಮ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ ಮತ್ತು ಲಾಗಿನ್ ಮಾಡಲು ABHA ID ಯನ್ನು ನಮೂದಿಸಿ.",
+      "bn-IN": "বৈদ্যমে আপনাকে স্বাগতম। আপনার ভাষা নির্বাচন করুন এবং লগইন করতে ABHA আইডি দিন।",
+      "mr-IN": "वैद्यममध्ये आपले स्वागत आहे. आपली भाषा निवडा आणि लॉगिन करण्यासाठी तुमचा आभा आयडी प्रविष्ट करा.",
+      "gu-IN": "વૈદ્યમમાં આપનું સ્વાગત છે. તમારી ભાષા પસંદ કરો અને લોગિન કરવા માટે ABHA ID દાખલ કરો."
+    };
+
+    const pathVoicePrompts = {
+      "en-IN": "Please select your preferred care path. Choose Allopathy or Ayurveda.",
+      "hi-IN": "कृपया अपनी चिकित्सा पद्धति चुनें। एलोपैथी या आयुर्वेद चुनें।",
+      "ta-IN": "தயவுசெய்து உங்கள் மருத்துவ முறையைத் தேர்ந்தெடுக்கவும். அலோபதி அல்லது ஆயுர்வேதத்தைத் தேர்ந்தெடுக்கவும்.",
+      "te-IN": "దయచేసి మీ ప్రాధాన్యత గల వైద్య విధానాన్ని ఎంచుకోండి. అల్లోపతి లేదా ఆయుర్వేదాన్ని ఎంచుకోండి.",
+      "kn-IN": "ದಯವಿಟ್ಟು ನಿಮ್ಮ ಚಿಕಿತ್ಸಾ ಪದ್ಧತಿಯನ್ನು ಆಯ್ಕೆಮಾಡಿ. ಅಲೋಪತಿ ಅಥವಾ ಆಯುರ್ವೇದವನ್ನು ಆಯ್ಕೆಮಾಡಿ.",
+      "bn-IN": "আপনার পছন্দের চিকিৎসা পদ্ধতি নির্বাচন করুন। অ্যালোপ্যাথি বা আয়ুর্বেদ চয়ন করুন।",
+      "mr-IN": "कृपया तुमची वैद्यकीय पद्धती निवडा. ॲलोपॅथी किंवा आयुर्वेद निवडा.",
+      "gu-IN": "કૃપા કરીને તમારી સારવાર પદ્ધતિ પસંદ કરો. એલોપેથી અથવા આયુર્વેદ પસંદ કરો."
+    };
+
+    const fallbackSummaries = {
+      "en-IN": { summary: "Mild symptoms noted during deep assessment.", remedy: "Rest & Hydration", action: "Follow home care recommendations." },
+      "hi-IN": { summary: "गहन मूल्यांकन के दौरान हल्के लक्षण देखे गए।", remedy: "पर्याप्त आराम और तरल पदार्थ लें (Rest & Hydration)", action: "घरेलू देखभाल निर्देशों का पालन करें।" },
+      "ta-IN": { summary: "மதிப்பீட்டில் லேசான அறிகுறிகள் கண்டறியப்பட்டன.", remedy: "ஓய்வு மற்றும் போதுமான நீர்ச்சத்து", action: "வீட்டு பராமரிப்புப் பரிந்துரைகளைப் பின்பற்றவும்." },
+      "te-IN": { summary: "మూల్యాంకనంలో స్వల్ప లక్షణాలు గుర్తించబడ్డాయి.", remedy: "విశ్రాంతి మరియు తగినంత నీరు తాగడం", action: "ఇంటి సంరక్షణ సూచనలను పాటించండి." },
+      "kn-IN": { summary: "ಮೌಲ್ಯಮಾಪನದಲ್ಲಿ ಸೌಮ್ಯ ಲಕ್ಷಣಗಳು ಕಂಡುಬಂದಿವೆ.", remedy: "ವಿಶ್ರಾಂತಿ ಮತ್ತು ನಿರ್ಜಲೀಕರಣ ತಡೆಗಟ್ಟುವುದು", action: "ಮನೆಯ ಆರೈಕೆ ಸೂಚನೆಗಳನ್ನು ಅನುಸರಿಸಿ." },
+      "bn-IN": { summary: "মূল্যায়নের সময় মৃদু লক্ষণ দেখা গেছে।", remedy: "পর্যাপ্ত বিশ্রাম এবং তরল গ্রহণ", action: "গৃহস্থালী পরিচর্যা নির্দেশিকা মেনে চলুন।" },
+      "mr-IN": { summary: "मूल्यांकनादरम्यान सौम्य लक्षणे आढळली.", remedy: "पुरेशी विश्रांती आणि द्रवपदार्थ घेणे", action: "घरगुती काळजी घेण्याच्या सूचनांचे पालन करा." },
+      "gu-IN": { summary: "મૂલ્યાંકન દરમિયાન હળવા લક્ષણો નોંધાયા છે.", remedy: "પૂરતો આરામ અને પ્રવાહી ખોરાક", action: "ઘરગથ્થુ સંભાળની સૂચનાઓનું પાલન કરો." }
+    };
+
+    // SPEECH SYNTHESIS HELPER FOR DYNAMIC VOICE MATCHING
+    function getMatchingVoice(langCode) {
+      if (!('speechSynthesis' in window)) return null;
+      const voices = window.speechSynthesis.getVoices();
+      const baseLang = langCode.split('-')[0];
+      
+      // Exact match first, then base language match
+      return voices.find(v => v.lang === langCode) || 
+             voices.find(v => v.lang.startsWith(baseLang)) || 
+             null;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = () => {
+          // Warm up browser voices
+          window.speechSynthesis.getVoices();
+        };
+      }
+      speakWelcomeOnLoad();
+    });
+
+    function speakWelcomeOnLoad() {
+      selectedLanguage = document.getElementById('languageSelect').value;
+      const text = welcomePrompts[selectedLanguage] || welcomePrompts["en-IN"];
+      document.getElementById('welcomeVoicePrompt').innerText = text;
+
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = selectedLanguage;
+        
+        const voice = getMatchingVoice(selectedLanguage);
+        if (voice) utterance.voice = voice;
+        
+        utterance.rate = 0.9;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    function goToStep(stepNum) {
+      if (stepNum === 1) {
+        document.getElementById('step1').classList.remove('hidden-step');
+        document.getElementById('step1').classList.add('step-active');
+        document.getElementById('mainWorkspace').classList.add('hidden-step');
+        document.getElementById('stepBadge').innerText = "Welcome Screen";
+        speakWelcomeOnLoad();
+      } else {
+        document.getElementById('step1').classList.add('hidden-step');
+        document.getElementById('step1').classList.remove('step-active');
+        document.getElementById('mainWorkspace').classList.remove('hidden-step');
+
+        for (let i = 2; i <= 5; i++) {
+          const el = document.getElementById(`step${i}`);
+          if (i === stepNum) {
+            el.classList.remove('hidden-step');
+            el.classList.add('step-active');
+          } else {
+            el.classList.add('hidden-step');
+            el.classList.remove('step-active');
+          }
+        }
+        document.getElementById('stepBadge').innerText = `Step ${stepNum - 1} of 4`;
+      }
+    }
+
+    function proceedToStep2() {
+      goToStep(2);
+      playVoiceDirections();
+    }
+
+    function playVoiceDirections() {
+      const text = pathVoicePrompts[selectedLanguage] || pathVoicePrompts["en-IN"];
+      document.getElementById('pathVoicePrompt').innerText = text;
+
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = selectedLanguage;
+        
+        const voice = getMatchingVoice(selectedLanguage);
+        if (voice) utterance.voice = voice;
+
+        utterance.rate = 0.9;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    function selectCarePath(path) {
+      selectedPath = path;
+      document.getElementById('selectedPathDisplay').innerText = path;
+      
+      currentQuestionIndex = 0;
+      examinationAnswers = [];
+      document.getElementById('responseHistoryList').innerHTML = "";
+      document.getElementById('responseHistoryContainer').classList.add('hidden');
+      
+      loadQuestion(currentQuestionIndex);
+      goToStep(3);
+    }
+
+    function loadQuestion(index) {
+      const qList = examinationQuestions[selectedLanguage] || examinationQuestions["en-IN"];
+      const q = qList[index];
+      
+      document.getElementById('aiQuestionText').innerText = q.question;
+      document.getElementById('aiSubPrompt').innerText = q.sub;
+      document.getElementById('examProgressBadge').innerText = `Question ${index + 1} of ${qList.length}`;
+      document.getElementById('currentAnswerInput').value = "";
+
+      if (index === qList.length - 1) {
+        document.getElementById('nextQuestionBtn').innerText = "Complete Assessment →";
+      } else {
+        document.getElementById('nextQuestionBtn').innerText = "Submit & Next Question →";
+      }
+
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(q.question);
+        utterance.lang = selectedLanguage;
+        
+        const voice = getMatchingVoice(selectedLanguage);
+        if (voice) utterance.voice = voice;
+
+        utterance.rate = 0.9;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    function submitCurrentAnswer() {
+      const inputVal = document.getElementById('currentAnswerInput').value.trim();
+      if (!inputVal) {
+        alert("Please provide an answer using voice, text, or sign gestures.");
+        return;
+      }
+
+      const qList = examinationQuestions[selectedLanguage] || examinationQuestions["en-IN"];
+      const q = qList[currentQuestionIndex];
+      examinationAnswers.push(`${q.id}: ${inputVal}`);
+
+      const historyContainer = document.getElementById('responseHistoryContainer');
+      const historyList = document.getElementById('responseHistoryList');
+      historyContainer.classList.remove('hidden');
+
+      const logItem = document.createElement('div');
+      logItem.className = "p-2 bg-white rounded-lg border border-slate-200";
+      logItem.innerHTML = `<b>Q${currentQuestionIndex + 1}:</b> ${inputVal}`;
+      historyList.appendChild(logItem);
+
+      currentQuestionIndex++;
+
+      if (currentQuestionIndex < qList.length) {
+        loadQuestion(currentQuestionIndex);
+      } else {
+        sendToAI();
+      }
+    }
+
+    function switchInputMode(mode) {
+      const textContainer = document.getElementById('textInputContainer');
+      const signContainer = document.getElementById('signCameraContainer');
+      const tabText = document.getElementById('tabTextVoice');
+      const tabSign = document.getElementById('tabSign');
+
+      if (mode === 'sign') {
+        textContainer.classList.add('hidden');
+        signContainer.classList.remove('hidden');
+        tabSign.className = "flex-1 py-3 rounded-xl bg-white shadow-sm text-teal-700 transition";
+        tabText.className = "flex-1 py-3 rounded-xl hover:text-teal-700 transition";
+        startSignCamera();
+      } else {
+        signContainer.classList.add('hidden');
+        textContainer.classList.remove('hidden');
+        tabText.className = "flex-1 py-3 rounded-xl bg-white shadow-sm text-teal-700 transition";
+        tabSign.className = "flex-1 py-3 rounded-xl hover:text-teal-700 transition";
+        if (camera) camera.stop();
+      }
+    }
+
+    function startNativeVoiceInput() {
+      const status = document.getElementById('voiceStatus');
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+      if (!SpeechRecognition) {
+        alert("Browser speech recognition not supported. Use Chrome or Edge.");
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = selectedLanguage;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => { status.innerText = `Listening in ${selectedLanguage}...`; };
+      recognition.onspeechend = () => { status.innerText = "Captured."; recognition.stop(); };
+      recognition.onresult = (e) => {
+        document.getElementById('currentAnswerInput').value = e.results[0][0].transcript;
+        status.innerText = "";
+      };
+      recognition.start();
+    }
+
+    async function startSignCamera() {
+      const videoElement = document.getElementById('webcamView');
+
+      if (!hands) {
+        hands = new Hands({
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+          maxNumHands: 1,
+          modelComplexity: 1,
+          minDetectionConfidence: 0.7,
+          minTrackingConfidence: 0.7
+        });
+
+        hands.onResults(onSignResults);
+      }
+
+      if (!camera) {
+        camera = new Camera(videoElement, {
+          onFrame: async () => { await hands.send({ image: videoElement }); },
+          width: 640,
+          height: 360
+        });
+      }
+
+      camera.start();
+    }
+
+    function onSignResults(results) {
+      if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+        document.getElementById('detectedSignBadge').innerText = "Detecting...";
+        return;
+      }
+
+      const landmarks = results.multiHandLandmarks[0];
+      const wrist = landmarks[0];
+      const indexTip = landmarks[8];
+      const middleTip = landmarks[12];
+      const ringTip = landmarks[16];
+      const pinkyTip = landmarks[20];
+
+      let gesture = "";
+      if (indexTip.y < wrist.y && middleTip.y < wrist.y && ringTip.y < wrist.y && pinkyTip.y < wrist.y) {
+        gesture = "Severe Symptoms";
+      } else if (indexTip.y > wrist.y && middleTip.y > wrist.y && ringTip.y > wrist.y && pinkyTip.y > wrist.y) {
+        gesture = "Mild Symptoms";
+      } else if (indexTip.y < wrist.y && middleTip.y > wrist.y) {
+        gesture = "Moderate Pain";
+      }
+
+      if (gesture) {
+        document.getElementById('detectedSignBadge').innerText = `Detected: ${gesture}`;
+        const box = document.getElementById('currentAnswerInput');
+        box.value = gesture;
+      }
+    }
+
+    async function sendToAI() {
+      const abhaId = document.getElementById('abhaIdInput').value;
+      const combinedSymptoms = examinationAnswers.join(" | ");
+
+      try {
+        const response = await fetch('http://127.0.0.1:8000/api/triage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            patient_id: abhaId,
+            track: selectedPath,
+            symptoms: combinedSymptoms,
+            language: selectedLanguage
+          })
+        });
+
+        const data = await response.json();
+        renderResult(data);
+        goToStep(4);
+      } catch (err) {
+        const fallback = fallbackSummaries[selectedLanguage] || fallbackSummaries["en-IN"];
+        renderResult({
+          patient_id: abhaId,
+          severity: "ROUTINE",
+          summary: fallback.summary,
+          recommended_generic: fallback.remedy,
+          action_required: fallback.action
+        });
+        goToStep(4);
+      }
+    }
+
+    function renderResult(data) {
+      document.getElementById('resAbha').innerText = data.patient_id;
+      document.getElementById('resSummaryText').innerText = data.summary;
+      document.getElementById('resRemedyText').innerText = data.recommended_generic;
+      document.getElementById('resActionText').innerText = data.action_required;
+
+      const badge = document.getElementById('severityBadge');
+      const notice = document.getElementById('doctorNotice');
+      const sev = (data.severity || 'ROUTINE').toUpperCase();
+
+      badge.innerText = sev;
+
+      if (sev === 'EMERGENCY' || sev === 'URGENT') {
+        badge.className = "px-3.5 py-1 rounded-full text-xs font-bold uppercase text-white bg-red-600";
+        notice.className = "p-4 rounded-2xl bg-red-50 border border-red-200 text-red-900 text-xs";
+        notice.innerHTML = `<div class="font-bold text-red-700">🚨 Doctor Consultation Recommended</div><p class="mt-0.5">Consulting a healthcare provider is recommended.</p>`;
+      } else {
+        badge.className = "px-3.5 py-1 rounded-full text-xs font-bold uppercase text-white bg-emerald-600";
+        notice.className = "p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs";
+        notice.innerHTML = `<div class="font-bold text-emerald-800">✅ Routine Condition</div><p class="mt-0.5">Immediate doctor consultation is not required.</p>`;
+      }
+
+      readAssessmentAloud();
+    }
+
+    function readAssessmentAloud() {
+      const summary = document.getElementById('resSummaryText').innerText;
+      const remedy = document.getElementById('resRemedyText').innerText;
+
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const text = `${summary}. ${remedy}.`;
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = selectedLanguage;
+        
+        const voice = getMatchingVoice(selectedLanguage);
+        if (voice) utterance.voice = voice;
+
+        utterance.rate = 0.9;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    // PRESCRIPTION OCR PROCESSING VIA TESSERACT.JS
+    async function processPrescriptionOCR(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const previewContainer = document.getElementById('ocrPreviewContainer');
+      const previewImg = document.getElementById('ocrPreviewImg');
+      previewImg.src = URL.createObjectURL(file);
+      previewContainer.classList.remove('hidden');
+
+      const progressCard = document.getElementById('ocrProgressCard');
+      const statusText = document.getElementById('ocrStatusText');
+      const percentText = document.getElementById('ocrPercent');
+      const progressBar = document.getElementById('ocrProgressBar');
+      const extractedTextEl = document.getElementById('ocrExtractedText');
+      const statusBadge = document.getElementById('ocrStatusBadge');
+      const matchedCard = document.getElementById('matchedMedicinesCard');
+      const matchedList = document.getElementById('matchedMedicinesList');
+
+      progressCard.classList.remove('hidden');
+      matchedCard.classList.add('hidden');
+      statusBadge.innerText = "Scanning Image...";
+      statusBadge.className = "text-amber-400 font-bold";
+      extractedTextEl.innerText = "Initializing OCR Engine...";
+
+      try {
+        const worker = await Tesseract.createWorker('eng');
+
+        const { data: { text } } = await worker.recognize(file, {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              const pct = Math.round(m.progress * 100);
+              statusText.innerText = `Recognizing Text...`;
+              percentText.innerText = `${pct}%`;
+              progressBar.style.width = `${pct}%`;
+            }
+          }
+        });
+
+        await worker.terminate();
+
+        statusText.innerText = "Scan Complete!";
+        statusBadge.innerText = "Success";
+        statusBadge.className = "text-emerald-400 font-bold";
+        extractedTextEl.innerText = text.trim() ? text.trim() : "No readable text found. Please ensure high image clarity.";
+
+        const foundGenerics = matchGenericMedicines(text);
+        if (foundGenerics.length > 0) {
+          matchedList.innerHTML = foundGenerics.map(item => `
+            <div class="flex justify-between items-center bg-white p-2.5 rounded-xl border border-emerald-200">
+              <div>
+                <span class="font-bold text-slate-800">${item.brand}</span>
+                <span class="block text-[11px] text-emerald-700">Generic: <b>${item.generic}</b></span>
+              </div>
+              <div class="text-right">
+                <span class="text-emerald-800 font-extrabold block">${item.janPrice}</span>
+                <span class="text-[10px] text-slate-400 line-through">${item.brandPrice}</span>
+              </div>
+            </div>
+          `).join('');
+          matchedCard.classList.remove('hidden');
+        } else {
+          matchedList.innerHTML = `<p class="text-xs text-slate-600">No known brand matches detected. Bring this prescription directly to any Jan Aushadhi Kendra for manual generic mapping.</p>`;
+          matchedCard.classList.remove('hidden');
+        }
+
+      } catch (err) {
+        console.error("OCR Error:", err);
+        statusBadge.innerText = "Error";
+        statusBadge.className = "text-rose-400 font-bold";
+        extractedTextEl.innerText = "Failed to scan prescription. Try a clearer photo.";
+      }
+    }
+
+    function matchGenericMedicines(ocrText) {
+      const lower = ocrText.toLowerCase();
+      const db = [
+        { brandKeywords: ["crocin", "calpol", "dolo", "paracetamol"], brand: "Paracetamol 650mg", generic: "Paracetamol IP 650mg", janPrice: "₹12 (10 Tabs)", brandPrice: "₹32" },
+        { brandKeywords: ["pantocid", "pan40", "pantoprazole"], brand: "Pantoprazole 40mg", generic: "Pantoprazole Gastro-resistant IP", janPrice: "₹18 (10 Tabs)", brandPrice: "₹110" },
+        { brandKeywords: ["azithral", "zithromax", "azithromycin"], brand: "Azithromycin 500mg", generic: "Azithromycin IP 500mg", janPrice: "₹35 (3 Tabs)", brandPrice: "₹120" },
+        { brandKeywords: ["allegra", "cetzine", "cetirizine"], brand: "Cetirizine 10mg", generic: "Cetirizine Hydrochloride IP", janPrice: "₹8 (10 Tabs)", brandPrice: "₹45" },
+        { brandKeywords: ["combiflam", "ibuprofen"], brand: "Ibuprofen + Paracetamol", generic: "Ibuprofen & Paracetamol IP", janPrice: "₹10 (10 Tabs)", brandPrice: "₹40" }
+      ];
+
+      return db.filter(item => item.brandKeywords.some(kw => lower.includes(kw)));
+    }
+  </script>
+</body>
+</html>
